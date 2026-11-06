@@ -1,1 +1,461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Atlas du cerveau - lobes, langage, EEG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    color-scheme: light;
+    --bg: #E6ECF1;
+    --surface: #F6F8FA;
+    --ink: #1C2836;
+    --muted: #5A6878;
+    --line: #C3CDD7;
+    --sulcus: rgba(28, 40, 54, 0.28);
+    --frontal: #86AACB;
+    --parietal: #E1BC66;
+    --occipital: #CC8597;
+    --temporal: #8FC0A2;
+    --cereb: #B3A2D2;
+    --stem: #ADA79C;
+    --signal: #1F5FA8;
+    --hot: #D2463C;
+    --trace-bg: #EEF2F6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0E1823;
+      --surface: #15212E;
+      --ink: #E4EAF0;
+      --muted: #93A2B2;
+      --line: #2A3A4B;
+      --sulcus: rgba(10, 18, 26, 0.55);
+      --frontal: #4F7699;
+      --parietal: #A88A3E;
+      --occipital: #96566A;
+      --temporal: #568C6D;
+      --cereb: #7A6A9C;
+      --stem: #6E6A62;
+      --signal: #7DB8FF;
+      --hot: #FF7A6E;
+      --trace-bg: #101B27;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0E1823; --surface: #15212E; --ink: #E4EAF0; --muted: #93A2B2; --line: #2A3A4B;
+    --sulcus: rgba(10, 18, 26, 0.55); --frontal: #4F7699; --parietal: #A88A3E; --occipital: #96566A;
+    --temporal: #568C6D; --cereb: #7A6A9C; --stem: #6E6A62; --signal: #7DB8FF; --hot: #FF7A6E; --trace-bg: #101B27;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  *, *::before, *::after { box-sizing: inherit; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.55 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
+  header { max-width: 60ch; margin-bottom: 1.5rem; }
+  h1 {
+    font: 600 clamp(2rem, 4.5vw, 3.1rem)/1.05 "Newsreader", Georgia, serif;
+    letter-spacing: -0.015em;
+    margin: 0 0 0.6rem;
+  }
+  header p { margin: 0; color: var(--muted); }
 
+  .modes { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1.25rem 0 1rem; }
+  .modes button {
+    font: 500 0.95rem "IBM Plex Sans", system-ui, sans-serif;
+    color: var(--ink);
+    background: transparent;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    padding: 0.45rem 1rem;
+    cursor: pointer;
+  }
+  .modes button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  button:focus-visible, .lobe:focus-visible, .electrode:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+
+  .stage { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+
+  .plate { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 0.75rem; position: relative; }
+  .plate svg { display: block; width: 100%; height: auto; }
+  .orient { position: absolute; left: 1.1rem; bottom: 0.8rem; font-size: 0.8rem; color: var(--muted); }
+
+  .lobe { stroke: var(--ink); stroke-width: 1.6; stroke-opacity: 0.55; cursor: pointer; transition: opacity .25s, filter .25s; }
+  .lobe:hover { filter: brightness(1.08) saturate(1.15); }
+  .lobe.active { stroke-width: 3; stroke-opacity: 1; }
+  #f-frontal { fill: var(--frontal); } #f-parietal { fill: var(--parietal); }
+  #f-occipital { fill: var(--occipital); } #f-temporal { fill: var(--temporal); }
+  #f-cerebellum { fill: var(--cereb); } #f-brainstem { fill: var(--stem); }
+  .sulci path { fill: none; stroke: var(--sulcus); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+  .lobe-label { font: 600 15px "Newsreader", Georgia, serif; fill: var(--ink); pointer-events: none; }
+
+  body[data-mode="langage"] .lobe, body[data-mode="eeg"] .lobe { opacity: 0.45; }
+  body[data-mode="eeg"] .lobe.active { opacity: 0.85; }
+  body:not([data-mode="lobes"]) .lobe-label { opacity: 0; }
+  #g-lang, #g-eeg { display: none; }
+  body[data-mode="langage"] #g-lang { display: inline; }
+  body[data-mode="eeg"] #g-eeg { display: inline; }
+
+  .area { fill: var(--hot); fill-opacity: 0.22; stroke: var(--hot); stroke-width: 2; cursor: pointer; transition: fill-opacity .2s; }
+  .area.lit { fill-opacity: 0.75; }
+  .area-label { font: 600 13px "IBM Plex Sans", system-ui, sans-serif; fill: var(--ink); pointer-events: none; }
+  #arcuate { fill: none; stroke: var(--signal); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 2 10; opacity: 0.75; cursor: pointer; }
+  #arcuate.lit { stroke-dasharray: none; opacity: 1; }
+  #pulse { fill: var(--signal); }
+
+  .electrode circle { fill: var(--surface); stroke: var(--ink); stroke-width: 2; transition: fill .2s; }
+  .electrode { cursor: pointer; }
+  .electrode text { font: 600 11px "IBM Plex Sans", system-ui, sans-serif; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .electrode.active circle { fill: var(--signal); stroke: var(--signal); }
+  .electrode.active text { fill: var(--surface); }
+
+  aside { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 1.25rem 1.35rem; min-height: 100%; }
+  #info-kind { font-size: 0.85rem; color: var(--muted); margin: 0 0 0.2rem; }
+  #info-title { font: 600 1.7rem/1.15 "Newsreader", Georgia, serif; margin: 0 0 0.6rem; }
+  #info-body { margin: 0 0 0.8rem; }
+  #info-list { margin: 0 0 0.9rem; padding-left: 1.1rem; }
+  #info-list li { margin-bottom: 0.25rem; }
+  #info-fact { font-size: 0.92rem; color: var(--muted); border-left: 3px solid var(--line); padding-left: 0.75rem; margin: 0; }
+  #info-fact:empty { display: none; }
+
+  .run { margin-top: 1rem; display: none; }
+  body[data-mode="langage"] .run { display: block; }
+  .run button {
+    font: 600 0.95rem "IBM Plex Sans", system-ui, sans-serif;
+    background: var(--signal); color: var(--surface); border: 0; border-radius: 10px; padding: 0.6rem 1rem; cursor: pointer;
+  }
+  .steps { list-style: none; padding: 0; margin: 0.9rem 0 0; font-size: 0.92rem; }
+  .steps li { padding: 0.3rem 0 0.3rem 1.6rem; position: relative; color: var(--muted); }
+  .steps li::before { content: attr(data-n); position: absolute; left: 0; top: 0.3rem; width: 1.2rem; height: 1.2rem; border-radius: 50%; border: 1.5px solid var(--line); font-size: 0.72rem; display: grid; place-items: center; }
+  .steps li.on { color: var(--ink); font-weight: 600; }
+  .steps li.on::before { background: var(--signal); border-color: var(--signal); color: var(--surface); }
+
+  .trace { margin-top: 1rem; display: none; }
+  body[data-mode="eeg"] .trace { display: block; }
+  .trace canvas { width: 100%; height: 130px; display: block; background: var(--trace-bg); border-radius: 10px; border: 1px solid var(--line); }
+  .trace p { font-size: 0.8rem; color: var(--muted); margin: 0.4rem 0 0; }
+
+  footer { margin-top: 1.5rem; font-size: 0.85rem; color: var(--muted); max-width: 70ch; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body data-mode="lobes">
+<div class="wrap">
+  <header>
+    <h1>Le cerveau, vu de cìtÇ</h1>
+    <p>HÇmisphäre gauche, face latÇrale. Touchez une rÇgion pour savoir ce qu'elle fait, suivez un mot Ö travers le circuit du langage, ou posez-vous Ö la place d'une Çlectrode EEG.</p>
+  </header>
+
+  <div class="modes" role="group" aria-label="Mode d'affichage">
+    <button type="button" data-mode="lobes" aria-pressed="true">Lobes</button>
+    <button type="button" data-mode="langage" aria-pressed="false">Circuit du langage</button>
+    <button type="button" data-mode="eeg" aria-pressed="false">êlectrodes EEG 10-20</button>
+  </div>
+
+  <div class="stage">
+    <div class="plate">
+      <svg viewBox="80 60 650 510" role="img" aria-label="SchÇma de l'hÇmisphäre gauche du cerveau">
+        <!-- Tronc cÇrÇbral et cervelet dessinÇs en premier, sous le cortex -->
+        <path id="f-brainstem" class="lobe" data-id="brainstem" tabindex="0"
+          d="M455 425 C458 470 466 520 470 560 L522 560 C516 520 514 470 522 425 Z"/>
+        <path id="f-cerebellum" class="lobe" data-id="cerebellum" tabindex="0"
+          d="M515 432 C535 398 600 392 645 400 C695 410 715 452 692 482 C665 512 582 512 540 492 C512 477 506 452 515 432 Z"/>
+        <g class="sulci">
+          <path d="M540 425 C590 418 650 425 690 445"/>
+          <path d="M530 450 C585 440 650 448 700 468"/>
+          <path d="M535 475 C585 468 640 475 680 492"/>
+        </g>
+
+        <path id="f-frontal" class="lobe" data-id="frontal" tabindex="0"
+          d="M380 92 C300 80 190 110 135 190 C100 245 105 315 150 350 C175 365 200 360 215 345 C260 330 300 315 335 305 C345 230 360 160 380 92 Z"/>
+        <path id="f-parietal" class="lobe" data-id="parietal" tabindex="0"
+          d="M380 92 C450 85 520 95 560 120 C575 190 585 260 590 330 C550 320 510 305 480 300 C430 300 380 302 335 305 C345 230 360 160 380 92 Z"/>
+        <path id="f-occipital" class="lobe" data-id="occipital" tabindex="0"
+          d="M560 120 C620 145 670 200 685 260 C695 310 670 370 620 395 C610 380 600 355 590 330 C585 260 575 190 560 120 Z"/>
+        <path id="f-temporal" class="lobe" data-id="temporal" tabindex="0"
+          d="M215 345 C260 330 300 315 335 305 C380 302 430 300 480 300 C510 305 550 320 590 330 C600 355 610 380 620 395 C560 420 470 440 380 440 C300 440 230 420 205 390 C195 375 200 355 215 345 Z"/>
+
+        <!-- Sillons dÇcoratifs -->
+        <g class="sulci">
+          <path d="M335 108 C320 170 305 230 290 300"/>
+          <path d="M270 105 C230 140 220 180 245 215 C265 245 240 270 210 290"/>
+          <path d="M175 165 C200 200 180 240 150 260"/>
+          <path d="M425 95 C405 160 395 230 385 300"/>
+          <path d="M470 160 C510 175 535 200 545 245"/>
+          <path d="M620 175 C640 230 640 290 625 340"/>
+          <path d="M255 380 C340 360 450 360 560 370"/>
+          <path d="M270 415 C360 405 470 408 575 395"/>
+        </g>
+
+        <text class="lobe-label" x="215" y="220">Frontal</text>
+        <text class="lobe-label" x="430" y="190">PariÇtal</text>
+        <text class="lobe-label" x="600" y="265">Occipital</text>
+        <text class="lobe-label" x="350" y="395">Temporal</text>
+        <text class="lobe-label" x="580" y="460">Cervelet</text>
+        <text class="lobe-label" x="480" y="545" text-anchor="end">Tronc</text>
+
+        <!-- Mode langage -->
+        <g id="g-lang">
+          <path id="arcuate" data-id="arcuate" tabindex="0" d="M262 296 C320 220 470 225 505 330"/>
+          <ellipse id="a-motor" class="area" data-id="motor" cx="325" cy="258" rx="20" ry="16"/>
+          <ellipse id="a-broca" class="area" data-id="broca" cx="250" cy="305" rx="34" ry="24"/>
+          <ellipse id="a-audit" class="area" data-id="auditory" cx="420" cy="325" rx="26" ry="14"/>
+          <ellipse id="a-wernicke" class="area" data-id="wernicke" cx="510" cy="340" rx="36" ry="24"/>
+          <text class="area-label" x="250" y="345" text-anchor="middle">Broca</text>
+          <text class="area-label" x="515" y="381" text-anchor="middle">Wernicke</text>
+          <text class="area-label" x="420" y="355" text-anchor="middle">Auditif</text>
+          <text class="area-label" x="350" y="240">Moteur (bouche)</text>
+          <path id="route" d="M420 325 L505 335 C470 225 320 220 262 296 L325 258" fill="none" stroke="none"/>
+          <circle id="pulse" r="0" cx="420" cy="325"/>
+        </g>
+
+        <!-- Mode EEG -->
+        <g id="g-eeg"></g>
+
+        <text x="100" y="80" class="area-label" opacity="0.6">Avant</text>
+        <text x="710" y="80" class="area-label" text-anchor="end" opacity="0.6">Arriäre</text>
+      </svg>
+    </div>
+
+    <aside aria-live="polite">
+      <p id="info-kind">Pour commencer</p>
+      <h2 id="info-title">Choisissez une rÇgion</h2>
+      <p id="info-body">Chaque couleur est un lobe. Les limites suivent les grands sillons : le sillon central sÇpare le frontal du pariÇtal, la scissure latÇrale isole le temporal.</p>
+      <ul id="info-list"></ul>
+      <p id="info-fact"></p>
+
+      <div class="run">
+        <button type="button" id="run-btn">RÇpÇter un mot entendu</button>
+        <ol class="steps" id="steps">
+          <li data-n="1">Le cortex auditif reáoit le son</li>
+          <li data-n="2">Wernicke reconnaåt le mot</li>
+          <li data-n="3">Le faisceau arquÇ transmet</li>
+          <li data-n="4">Broca prÇpare l'articulation</li>
+          <li data-n="5">Le cortex moteur fait parler</li>
+        </ol>
+      </div>
+
+      <div class="trace">
+        <canvas id="trace" aria-label="Signal EEG simulÇ de l'Çlectrode sÇlectionnÇe"></canvas>
+        <p>Signal simulÇ : mÇlange de rythmes typiques du site, pas un enregistrement rÇel.</p>
+      </div>
+    </aside>
+  </div>
+
+  <footer>SchÇma simplifiÇ Ö but pÇdagogique : les limites des lobes et la position des aires varient d'une personne Ö l'autre. Le modäle Æ Broca  faisceau arquÇ  Wernicke Ø est le modäle classique ; les neurosciences actuelles dÇcrivent un rÇseau du langage plus distribuÇ (voies dorsale et ventrale).</footer>
+</div>
+
+<script>
+const INFO = {
+  frontal: { kind: "Lobe", title: "Lobe frontal",
+    body: "Le chef d'orchestre : il planifie, dÇcide et lance les mouvements volontaires.",
+    list: ["Cortex moteur primaire (gyrus prÇcentral)", "Fonctions exÇcutives et mÇmoire de travail", "Production du langage (aire de Broca, Ö gauche)", "RÇgulation des Çmotions et du comportement social"],
+    fact: "C'est la derniäre rÇgion Ö finir sa maturation, vers le milieu de la vingtaine." },
+  parietal: { kind: "Lobe", title: "Lobe pariÇtal",
+    body: "Il assemble le toucher, la position du corps et l'espace autour de vous.",
+    list: ["Cortex somatosensoriel (gyrus postcentral)", "Attention spatiale et orientation", "Calcul et manipulation des nombres", "Lecture (gyrus angulaire)"],
+    fact: "Une lÇsion pariÇtale droite peut faire Æ ignorer Ø toute la moitiÇ gauche de l'espace : c'est l'hÇminÇgligence." },
+  occipital: { kind: "Lobe", title: "Lobe occipital",
+    body: "Le centre de la vision : couleurs, contours, mouvement.",
+    list: ["Cortex visuel primaire V1 (scissure calcarine)", "Aires visuelles associatives V2 Ö V5", "Analyse des formes et du mouvement"],
+    fact: "Fermez les yeux : le rythme alpha (8-12 Hz) y devient bien visible Ö l'EEG." },
+  temporal: { kind: "Lobe", title: "Lobe temporal",
+    body: "Audition, mÇmoire et sens des mots.",
+    list: ["Cortex auditif primaire (gyrus de Heschl)", "ComprÇhension du langage (aire de Wernicke, Ö gauche)", "MÇmoire, via l'hippocampe en profondeur", "Reconnaissance des visages (gyrus fusiforme)"],
+    fact: "L'hippocampe, enroulÇ Ö l'intÇrieur du lobe, est indispensable pour former de nouveaux souvenirs." },
+  cerebellum: { kind: "Structure", title: "Cervelet",
+    body: "Il affine chaque mouvement et garde l'Çquilibre.",
+    list: ["Coordination et prÇcision motrice", "êquilibre et posture", "Apprentissage moteur (vÇlo, clavier.)", "Rìle Çmergent dans certaines fonctions cognitives"],
+    fact: "Environ 80 % des neurones de l'encÇphale se trouvent dans le cervelet, surtout des cellules granulaires." },
+  brainstem: { kind: "Structure", title: "Tronc cÇrÇbral",
+    body: "Le relais entre le cerveau et la moelle Çpiniäre, et le gardien des fonctions vitales.",
+    list: ["Respiration et rythme cardiaque", "êveil et cycles veille-sommeil", "Passage des voies motrices et sensitives", "Noyaux des nerfs crÉniens"],
+    fact: "Il comprend le mÇsencÇphale, le pont et le bulbe rachidien." },
+  broca: { kind: "Aire du langage", title: "Aire de Broca",
+    body: "Gyrus frontal infÇrieur gauche. Elle organise la production de la parole et la syntaxe.",
+    list: ["Planification articulatoire", "Traitement de la grammaire", "LÇsion : aphasie de Broca (parole lente, laborieuse, comprÇhension assez prÇservÇe)"],
+    fact: "DÇcrite par Paul Broca en 1861 Ö partir du patient Æ Tan Ø." },
+  wernicke: { kind: "Aire du langage", title: "Aire de Wernicke",
+    body: "Partie postÇrieure du gyrus temporal supÇrieur gauche. Elle donne du sens aux mots entendus.",
+    list: ["ComprÇhension du langage parlÇ", "Accäs au lexique", "LÇsion : aphasie de Wernicke (parole fluide mais peu de sens, comprÇhension altÇrÇe)"],
+    fact: "DÇcrite par Carl Wernicke en 1874." },
+  arcuate: { kind: "Faisceau de substance blanche", title: "Faisceau arquÇ",
+    body: "Un cÉble de fibres qui relie les rÇgions temporales et frontales du langage en passant par le pariÇtal.",
+    list: ["RÇpÇtition de mots", "Lien entre son et articulation", "LÇsion : aphasie de conduction (difficultÇ Ö rÇpÇter)"],
+    fact: "On le visualise in vivo par tractographie en IRM de diffusion." },
+  auditory: { kind: "Aire sensorielle", title: "Cortex auditif primaire",
+    body: "Gyrus de Heschl, cachÇ dans la scissure latÇrale. Premiäre Çtape corticale pour les sons.",
+    list: ["Organisation tonotopique (grave  aigu)", "Analyse de la hauteur et du timbre"], fact: "" },
+  motor: { kind: "Aire motrice", title: "Cortex moteur, zone de la bouche",
+    body: "Partie infÇrieure du gyrus prÇcentral, qui commande lävres, langue et larynx.",
+    list: ["ExÇcution des mouvements articulatoires"], fact: "Sur l'homoncule moteur, la bouche et la main occupent une place dÇmesurÇe." }
+};
+
+/* êlectrodes du systäme 10-20 visibles sur la face latÇrale gauche */
+const ELECTRODES = [
+  { id: "Fp1", x: 128, y: 222, lobe: "frontal",  alpha: .2, beta: .5, theta: .4, note: "Pìle frontal : träs sensible aux clignements des yeux (artefacts)." },
+  { id: "F7",  x: 168, y: 318, lobe: "frontal",  alpha: .3, beta: .6, theta: .4, note: "Frontal infÇrieur, proche de l'aire de Broca." },
+  { id: "F3",  x: 245, y: 160, lobe: "frontal",  alpha: .4, beta: .6, theta: .5, note: "Cortex prÇfrontal dorsolatÇral, souvent utilisÇ dans les Çtudes sur la dÇpression." },
+  { id: "Fz",  x: 290, y: 100, lobe: "frontal",  alpha: .4, beta: .5, theta: .7, note: "Ligne mÇdiane frontale : le thàta frontal augmente avec l'effort mental." },
+  { id: "C3",  x: 375, y: 135, lobe: "parietal", alpha: .5, beta: .6, theta: .3, note: "Au-dessus du sillon central : rythme mu, qui diminue quand on bouge la main droite." },
+  { id: "Cz",  x: 400, y: 90,  lobe: "parietal", alpha: .5, beta: .5, theta: .4, note: "Sommet du crÉne, point de rÇfÇrence du systäme." },
+  { id: "T7",  x: 330, y: 378, lobe: "temporal", alpha: .4, beta: .5, theta: .4, note: "Temporal moyen, au voisinage du cortex auditif." },
+  { id: "P3",  x: 500, y: 165, lobe: "parietal", alpha: .8, beta: .4, theta: .3, note: "PariÇtal : composante P300 bien marquÇe lors de tÉches d'attention." },
+  { id: "Pz",  x: 520, y: 100, lobe: "parietal", alpha: .8, beta: .3, theta: .3, note: "Ligne mÇdiane pariÇtale, site classique de la P300." },
+  { id: "P7",  x: 560, y: 360, lobe: "temporal", alpha: .7, beta: .4, theta: .3, note: "Jonction temporo-occipitale : rÇponses aux visages (N170)." },
+  { id: "O1",  x: 668, y: 300, lobe: "occipital",alpha: 1.0, beta: .3, theta: .2, note: "Occipital : alpha dominant, yeux fermÇs et au repos." }
+];
+
+const body = document.body;
+const kindEl = document.getElementById("info-kind");
+const titleEl = document.getElementById("info-title");
+const bodyEl = document.getElementById("info-body");
+const listEl = document.getElementById("info-list");
+const factEl = document.getElementById("info-fact");
+
+function show(id) {
+  const d = INFO[id]; if (!d) return;
+  kindEl.textContent = d.kind; titleEl.textContent = d.title; bodyEl.textContent = d.body;
+  listEl.innerHTML = ""; d.list.forEach(t => { const li = document.createElement("li"); li.textContent = t; listEl.appendChild(li); });
+  factEl.textContent = d.fact;
+}
+function setActiveLobe(id) {
+  document.querySelectorAll(".lobe").forEach(l => l.classList.toggle("active", l.dataset.id === id));
+}
+function activate(el) {
+  const id = el.dataset.id;
+  if (body.dataset.mode === "eeg" && el.classList.contains("lobe")) return;
+  show(id);
+  if (el.classList.contains("lobe")) setActiveLobe(id);
+}
+document.querySelectorAll(".lobe, .area, #arcuate").forEach(el => {
+  el.addEventListener("click", () => activate(el));
+  el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(el); } });
+  if (el.classList.contains("area")) el.setAttribute("tabindex", "0");
+});
+
+/* êlectrodes */
+const gEeg = document.getElementById("g-eeg");
+const NS = "http://www.w3.org/2000/svg";
+let current = null;
+ELECTRODES.forEach(e => {
+  const g = document.createElementNS(NS, "g");
+  g.setAttribute("class", "electrode"); g.setAttribute("tabindex", "0");
+  g.setAttribute("role", "button"); g.setAttribute("aria-label", "êlectrode " + e.id);
+  const c = document.createElementNS(NS, "circle"); c.setAttribute("cx", e.x); c.setAttribute("cy", e.y); c.setAttribute("r", 16);
+  const t = document.createElementNS(NS, "text"); t.setAttribute("x", e.x); t.setAttribute("y", e.y); t.textContent = e.id;
+  g.append(c, t); gEeg.appendChild(g);
+  const pick = () => selectElectrode(e, g);
+  g.addEventListener("click", pick);
+  g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); pick(); } });
+  e.node = g;
+});
+function selectElectrode(e, g) {
+  current = e;
+  document.querySelectorAll(".electrode").forEach(n => n.classList.toggle("active", n === g));
+  setActiveLobe(e.lobe);
+  kindEl.textContent = "êlectrode EEG, systäme 10-20";
+  titleEl.textContent = e.id + " - au-dessus du " + INFO[e.lobe].title.toLowerCase();
+  bodyEl.textContent = e.note;
+  listEl.innerHTML = "";
+  [["Alpha (8-12 Hz)", e.alpha], ["Bàta (13-30 Hz)", e.beta], ["Thàta (4-7 Hz)", e.theta]].forEach(([n, v]) => {
+    const li = document.createElement("li"); li.textContent = n + " : " + (v >= .7 ? "fort" : v >= .45 ? "moyen" : "faible"); listEl.appendChild(li);
+  });
+  factEl.textContent = "Lettres : Fp = prÇfrontal, F = frontal, C = central, T = temporal, P = pariÇtal, O = occipital. Chiffres impairs Ö gauche, Æ z Ø sur la ligne mÇdiane.";
+}
+
+/* TracÇ EEG simulÇ */
+const canvas = document.getElementById("trace");
+const ctx = canvas.getContext("2d");
+let t0 = performance.now(), phaseNoise = 0;
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr; canvas.height = canvas.clientHeight * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+function sample(e, s) {
+  const n = Math.sin(s * 47.3 + phaseNoise) * 0.08 + Math.sin(s * 83.1) * 0.05;
+  return e.alpha * Math.sin(2 * Math.PI * 10 * s) * (0.75 + 0.25 * Math.sin(2 * Math.PI * 0.4 * s))
+       + e.beta * 0.45 * Math.sin(2 * Math.PI * 21 * s + 1)
+       + e.theta * 0.6 * Math.sin(2 * Math.PI * 6 * s + 2) + n;
+}
+function draw(now) {
+  if (body.dataset.mode === "eeg" && canvas.clientWidth) {
+    if (canvas.width === 0) resize();
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+    const style = getComputedStyle(document.documentElement);
+    ctx.strokeStyle = style.getPropertyValue("--line"); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+    if (current) {
+      const secs = (now - t0) / 1000, win = 2;
+      ctx.strokeStyle = style.getPropertyValue("--signal"); ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 1) {
+        const s = secs - win + (x / w) * win;
+        const y = h / 2 - sample(current, s) * (h * 0.22);
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = style.getPropertyValue("--muted"); ctx.font = "13px 'IBM Plex Sans', sans-serif";
+      ctx.fillText("Choisissez une Çlectrode sur le schÇma", 12, 22);
+    }
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+/* Circuit du langage animÇ */
+const route = document.getElementById("route");
+const pulse = document.getElementById("pulse");
+const stepsEl = [...document.querySelectorAll("#steps li")];
+const order = ["a-audit", "a-wernicke", "arcuate", "a-broca", "a-motor"];
+const cuts = [0.0, 0.12, 0.25, 0.82, 0.92];
+let running = false;
+document.getElementById("run-btn").addEventListener("click", () => {
+  if (running) return; running = true;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const total = route.getTotalLength(), dur = reduce ? 1 : 4200, start = performance.now();
+  pulse.setAttribute("r", 9);
+  function frame(now) {
+    const p = Math.min(1, (now - start) / dur);
+    const pt = route.getPointAtLength(p * total);
+    pulse.setAttribute("cx", pt.x); pulse.setAttribute("cy", pt.y);
+    let step = 0; cuts.forEach((c, i) => { if (p >= c) step = i; });
+    order.forEach((id, i) => document.getElementById(id).classList.toggle("lit", i === step));
+    stepsEl.forEach((li, i) => li.classList.toggle("on", i === step));
+    if (p < 1) requestAnimationFrame(frame);
+    else setTimeout(() => {
+      pulse.setAttribute("r", 0); running = false;
+      order.forEach(id => document.getElementById(id).classList.remove("lit"));
+    }, 900);
+  }
+  requestAnimationFrame(frame);
+});
+
+/* Modes */
+document.querySelectorAll(".modes button").forEach(b => b.addEventListener("click", () => {
+  body.dataset.mode = b.dataset.mode;
+  document.querySelectorAll(".modes button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  setActiveLobe(null);
+  if (b.dataset.mode === "langage") show("arcuate");
+  if (b.dataset.mode === "eeg") { resize(); selectElectrode(ELECTRODES[ELECTRODES.length - 1], ELECTRODES[ELECTRODES.length - 1].node); }
+  if (b.dataset.mode === "lobes") show("frontal"), setActiveLobe("frontal");
+}));
+</script>
+</body>
+</html>
